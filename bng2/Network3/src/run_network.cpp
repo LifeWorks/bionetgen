@@ -1059,6 +1059,7 @@ int main(int argc, char *argv[]){
 	// Screen outputs
 	outpre = chop_suffix(outpre, ".net");
 	if (propagator == SSA || HAS) fprintf(stdout, "TOTAL STEPS: %-16.0f\n", gillespie_n_steps());
+	if (propagator == HAS) fprintf(stdout, "TOTAL REACTIONS FIRED: %-16.0f\n", gillespie_n_firings());
 	fprintf(stdout, "Time course of concentrations written to file %s.cdat.\n", outpre);
 	if (n_groups_network()) fprintf(stdout, "Time course of groups written to file %s.gdat.\n", outpre);
 	if (print_func && network.functions.size() > 0) fprintf(stdout, "Time course of functions written to file %s.gdat.\n", outpre);

@@ -250,6 +250,7 @@ extern int    adaptive_scaling_network(double* t, double delta_t, double scalele
 									   double maxStep, mu::Parser& stop_condition);
 //extern long int gillespie_n_steps();
 extern double gillespie_n_steps();
+extern double gillespie_n_firings();
 extern double gillespie_frac_species_active();
 extern double gillespie_frac_rxns_active();
 extern void	  delete_GSP_included();

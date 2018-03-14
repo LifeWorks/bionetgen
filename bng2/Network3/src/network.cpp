@@ -4325,6 +4325,7 @@ static struct {
 	iarray* rxn_update_list; /* array of reactions that must be updated after reaction of given index fires */
 //	long int n_steps;
 	double n_steps;
+    double n_firings;
 	int rxn_update_size;
 	int rxn_rate_update_interval;
 	// species -> observables
@@ -4903,6 +4904,7 @@ int init_adaptive_scaling_network(int update_interval, int seed, double scalelev
 	}
 
 	GSP.n_steps = 0;
+	GSP.n_firings = 0.0;
 
 	/* Initialize reaction number and species number */
 	GSP.nc = n_species_network();
@@ -5936,6 +5938,7 @@ int adaptive_scaling_network(double* t, double delta_t, double scalelevel, bool 
 		/* fire rule by updating concentrations */
 		rxn_rate_update = update_concentrations_has(irxn);
 		++GSP.n_steps;
+        GSP.n_firings += GSP.s[irxn];
 
 		/* update rxn rates */
 		double GSP_interval = (double)GSP.rxn_rate_update_interval;
@@ -6010,6 +6013,10 @@ double gillespie_frac_rxns_active() {
 //long int gillespie_n_steps() {
 double gillespie_n_steps() {
 	return (GSP.n_steps);
+}
+
+double gillespie_n_firings() {
+	return (GSP.n_firings);
 }
 
 void delete_GSP_included(){
