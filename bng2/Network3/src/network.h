@@ -245,8 +245,8 @@ extern int   print_pca_network(FILE* out, double t);
 extern int    init_gillespie_direct_network(int update_interval, int seed);
 extern int    gillespie_direct_network(double* t, double delta_t, double* C_avg, double* C_sig,
 									   double maxStep, mu::Parser& stop_condition);
-extern int    init_adaptive_scaling_network(int update_interval, int seed, double scalelevel, bool pScaleChecker);
-extern int    adaptive_scaling_network(double* t, double delta_t, double scalelevel, bool pScaleChecker, double* C_avg, double* C_sig,
+extern int    init_adaptive_scaling_network(int update_interval, int seed, double poplevel, bool pScaleChecker);
+extern int    adaptive_scaling_network(double* t, double delta_t, double poplevel, bool pScaleChecker, double* C_avg, double* C_sig,
 									   double maxStep, mu::Parser& stop_condition);
 //extern long int gillespie_n_steps();
 extern double gillespie_n_steps();
@@ -255,7 +255,11 @@ extern double gillespie_frac_species_active();
 extern double gillespie_frac_rxns_active();
 extern void	  delete_GSP_included();
 
-// Custom muParser function to support if() syntax
+// Custom muParser functions
 static mu::value_type If(mu::value_type v1, mu::value_type v2, mu::value_type v3){
 	return (v1>0.5?v2:v3); // v1 should equal 0.0 or 1.0. Using v1 > 0.5 for 'true' just to be safe.
+}
+
+static mu::value_type Mratio(mu::value_type a, mu::value_type b, mu::value_type z){
+	return Util::Mratio(a,b,z);
 }

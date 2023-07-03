@@ -1,9 +1,149 @@
 CHANGES to BioNetGen
-updated 20 April 2017
+updated 28 September 2021
 https://github.com/RuleWorld/bionetgen/
 
+== BioNetGen-2.8.5==
+'''''2023 March '''''
+
+== Minor changes ==
+* Updated underlying NFsim version to 1.14.0, see [here](https://github.com/RuleWorld/nfsim/releases/tag/v1.14) for a change list.
+* Bugfix: fix to issue #174 was causing multiple patterns with quantifiers to fail incorrectly. Multiple
+patterns with quantifiers are now correctly parsed with spaces or commas in between but multiple quantifiers
+within the same pattern is correctly caught and errors out. 
+
+== BioNetGen-2.8.4==
+'''''2022 June 22'''''
+
+== Minor changes ==
+* Bugfix to issue #174 where observables of the form `A==N.B==M` were accepted but incorrectly parsed. 
+These observables are no longer accepted and will produce an error. 
+* Bugfix to issue #180 where wildcard bonds in products could be broken, e.g. `A(b!+) -> A(b) + B(a)`. 
+This will now be detected, cause an error and quit. 
+* Bugfix to issue #189 where negative rate constants were accepted without warning. Rate constants 
+will be evaluated and if they are negative, they will produce a warning but won't quit. 
+
+== BioNetGen-2.8.3==
+'''''2022 June 22'''''
+
+== Minor changes ==
+* Minor bugfix where the parameter scan action didn't check if the parameter getting scanned was defined.
+
+== BioNetGen-2.8.2==
+'''''2022 May 22'''''
+
+== Minor changes ==
+* Changed observable and species name separators in `writeCPYfile` action
+
+== BioNetGen-2.8.1==
+'''''2022 April 22'''''
+
+=== New Features ===
+* New action `writeCPPfile` writes a C++ header file that requires CVODE and encodes the model ODEs. 
+This allows for ODE simulations of the model directly from other C++ software
+* New action `writeCPYfile` writes a C file that requires CVODE and encodes the model ODEs. 
+This allows for ODE simulations of the model directly from other C software. Additionally, this 
+file is written with the Python `ctypes` module in mind, making it easier to make direct calls to 
+a shared C library from Python. 
+
+== Minor changes ==
+* Updated underlying NFsim version to [1.2.2](https://github.com/RuleWorld/nfsim/releases/tag/v1.2.2)
+* Minor bugfix where the reported unique species didn't account for certain species resulting in an incorrect count. 
+
+== BioNetGen-2.8.0==
+'''''2022 February 22'''''
+
+=== New Features ===
+* BNG-XML now exports the entire BNGL model and not just NFsim related features. 
+This is to allow other software to be able to read the XML instead of the BNGL
+model text. 
+
+== BioNetGen-2.7.2==
+'''''2022 February 17'''''
+
+=== Minor changes ===
+* BNG-XML now exports population maps for other software to read. 
+* BNG-XML now exports energy patterns for other software to read. 
+
+== BioNetGen-2.7.1==
+'''''2022 January 18'''''
+
+=== Minor changes ===
+Updated underlying NFsim version. Please see [this NFsim release](https://github.com/RuleWorld/nfsim/releases/tag/v1.2.0) 
+for more information. 
+
+== BioNetGen-2.7.0==
+'''''2021 April 16'''''
+
+=== New Features ===
+* Added graphml export support to `visualize` command. Added a new argument to `visualize` 
+called `outType`. `outType` accepts either `gml` or `graphml` as input. The default output
+type is now changed to `graphml`. 
+
+== BioNetGen-2.6.0==
+'''''2021 April 16'''''
+
+=== New Features ===
+* Added a new built-in function, TFUN. TFUN allows for two arguments, TFUN(ctr, "file.dat") 
+where ctr is either another function or an observable. "file.dat" needs to be a white space 
+sparated two column data file where the first column is the value of ctr to match to and the 
+second column is the value you want TFUN to return. 
+
+== BioNetGen-2.5.1==
+'''''2020 Dec 4'''''
+
+=== Bug Fixes ===
+* Fixed a bug in the SBML export of compartmental models where the compartment of the reaction was not exported to the kinetic law of the reaction, resulting in incorrect dynamics.
+
+== BioNetGen-2.5.1==
+'''''2020 Jun 4'''''
+
+=== Minor Changes === 
+* NFSim XML parameters now contain the string of the original expression
+
+=== Bug Fixes ===
+* Fixed a bug in 'RxnRule::build_reaction' so that BNG now quits if an explicit Species Compartment in a rule is not compatible with the inferred Species Compartment.
+
+== BioNetGen-2.5.0==
+'''''2019 May 6'''''
+
+=== New Features ===
+* Added a new built-in function <big><tt>mratio(a,b,z)</tt></big> that calculates the ratio of Kummer hypergeometric functions M(a+1,b+1,z)/M(a,b,z) to within a small tolerance. The function can be used in both the <big><tt>parameters</tt></big> and <big><tt>functions</tt></big> blocks and is useful for calculating the mean and variance of the steady-state number of C molecules in the simple kinetic scheme A + B <-> C. See [https://en.wikipedia.org/wiki/Confluent_hypergeometric_function] for further details.
+
+=== Minor Changes ===
+* Changed the name of HAS (heterogeneous adaptive scaling) to PSA (partial scaling algorithm) and 'scalelevel' option is now changed to 'poplevel'
+
+=== Bug Fixes ===
+* Fixed a bug in run_network.cpp so that the code now quits if an unrecognized command line argument is encountered.
+* Fixed a bug where 'writeMfile' function did not automatically handle rateLaw parameters and functions.
+
+== BioNetGen-2.4.0 ==
+'''''2018 October 17'''''
+
+==== New Features ====
+* Heterogeneous adaptive scaling method is implemented
+* Support for exporting multi state and multi component SBML files added
+
+==== Minor changes ===
+* Reworked the build process and added instructions
+
+==== Bug Fixes ====
+* Small change to <big><tt>Expression::getName()</tt></big> to not create a new local function if the rate law already starts with the <big><tt>_rateLaw</tt></big> prefix. This prevents BNG from continually making new functions every time a model is read back in.
+* Fixed a bug with reactants or the products that are just "0" not being correctly written in the reactions block of output .net files.
+
+== BioNetGen-2.3.2 ==
+'''''2018 October 17'''''
+
+==== Minor changes ===
+* Update Atomizer version
+
+== BioNetGen-2.3.1 ==
+'''''2017 August 3'''''
+
+==== Minor changes ===
+* Improve documentation
+
 == BioNetGen-2.3.0 ==
-'''''date tbd'''''
+'''''2017 April 28'''''
 
 ==== New Features ====
 * Show graph automorphisms and statistical factor calculations for rules and reactions: BNG2.pl model.bngl --write_autos (or) BNG2.pl model.bngl --autos

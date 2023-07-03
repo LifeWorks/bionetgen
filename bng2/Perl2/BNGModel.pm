@@ -49,7 +49,7 @@ use Cwd;
 use BNGOutput;
 
 # BNGAction contains BNGModel action methods
-#  e.g. simulate, simulate_pla, simulate_nf, simulate_has, parameter_scan, generate_hybrid_model...
+#  e.g. simulate, simulate_pla, simulate_nf, simulate_psa, parameter_scan, generate_hybrid_model...
 #  Note that some core actions are contained here: generate_network, setParameter, etc.
 use BNGAction;
 
@@ -492,6 +492,18 @@ sub readSBML
                             $err = errgen( $err, $lno );
                             goto EXIT;
                         }
+                        
+                        # AS-2022
+                        # warn user if the value is negative
+                        foreach my $param ( @{$model->ParamList->Array} )
+                        {
+                            if ( $param->Expr->evaluate($model->ParamList) < 0 ) {
+                                printf "Warning: Parameter %s is set to a negative value: %s\n", 
+                                    ( $param->Name, $param->Expr->evaluate($model->ParamList));
+                            }
+                        }
+                        # AS
+
                         # update user
                         printf "Read %d $name.\n", $model->ParamList->getNumParams() - $plast;
                     }
@@ -950,10 +962,10 @@ sub readSBML
 	                elsif ( $name eq 'protocol' )
 	                {
 	                	struct protocol =>
-                      {
-                        action  => '$',
-                        options => '$',
-                      };
+                        {
+                            action  => '$',
+                            options => '$',
+                        };
 	                    if ($model->Params->{'skip_actions'})
 	                    {
 	                        unless ($model->Params->{'action_skip_warn'})
@@ -1389,7 +1401,7 @@ sub writeFile
         if ( @{$model->RxnList->Array} == 0 )
         {
             return "writeFile() was asked to write the network, but no reactions were found.\n"
-                  ."Did you remember to call generate_network() before writing network output?\n";
+                  ."Did you remember to call generate_network() or to define seed species before writing network output?\n";
         }
     }
 

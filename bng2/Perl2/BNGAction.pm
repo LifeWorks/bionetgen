@@ -91,12 +91,12 @@ sub simulate_pla
 }
 
 
-sub simulate_has
+sub simulate_psa
 {
     my $model = shift @_;
     my $params = (@_) ? shift @_ : {};
 
-    $params->{method} = 'has';
+    $params->{method} = 'psa';
     my $err = $model->simulate( $params );
     return $err;
 }
@@ -127,7 +127,7 @@ sub simulate
                    options=>{ seed=>1 }                                      },
         pla   => { binary=>'run_network', type=>'Network', input=>'net',
                    options=>{ seed=>1 }                                      },
-        has   => { binary=>'run_network', type=>'Network', input=>'net', 
+        psa   => { binary=>'run_network', type=>'Network', input=>'net', 
                    options=>{ seed=>1}                          },
         nf    => { binary=>'NFsim', type=>'NetworkFree', input=>'xml',
                    options=>{ seed=>1 }                                      }
@@ -229,9 +229,16 @@ sub simulate
 	}
 	my $seed        = $params->{seed};
 
+    # Default to HAS method if scalelevel is defined
+    # note, this needs to be changed once the name changes
+    # to PLA/poplevel/popscale occur
+    if(defined $params->{poplevel}){
+      $method="psa"
+    }
+
     # check method
     unless ( $method )
-    {  return "simulate() requires 'method' parameter (ode, ssa, pla, has, nf).";  }
+    {  return "simulate() requires 'method' parameter (ode, ssa, pla, psa, nf).";  }
     if ($method =~ /^ode$/){  $method = 'cvode';  } # Support 'ode' as a valid method
     unless ( exists $METHODS->{$method} )
     {  return "Simulation method '$method' is not a valid option.";  }
@@ -239,7 +246,7 @@ sub simulate
     printf "ACTION: simulate( method=>\"%s\" )\n", $method;
 
     #if the method is ode or ssa or pla, check if the reaction network has been generated, and if not, generate it.
-    if ($method =~ /^(cvode|ssa|pla|has)$/)
+    if ($method =~ /^(cvode|ssa|pla|psa)$/)
     {
         if($model->RxnList->size()==0)
         {
@@ -324,21 +331,21 @@ sub simulate
     }
 
     # heterogeneous adaptive scaling method - specific arguments
-    if ($method eq 'has')
+    if ($method eq 'psa')
     {
-        if (!exists $params->{scalelevel}) {
-            $params->{scalelevel} = "100";
-            send_warning("'scalelevel' not defined, using default scaling targert: $params->{scalelevel}");
+        if (!exists $params->{poplevel}) {
+            $params->{poplevel} = "100";
+            send_warning("'poplevel' not defined, using default scaling targert: $params->{poplevel}");
         }
-        push @command, "--scalelevel", $params->{scalelevel};
+        push @command, "--poplevel", $params->{poplevel};
         if (exists $params->{check_product_scale}) {
             push @command, "--check_product_scale", $params->{check_product_scale};
         }
     }
     if ($method eq 'ssa')
     {
-        if ( exists $params->{scalelevel} ) {
-            push @command, "--scalelevel", $params->{scalelevel};
+        if ( exists $params->{poplevel} ) {
+            push @command, "--poplevel", $params->{poplevel};
             if (exists $params->{check_product_scale}) {
                 push @command, "--check_product_scale", $params->{check_product_scale};
             }
@@ -421,13 +428,14 @@ sub simulate
 
     # Set start time for trajectory
     my $t_start;
+    my $tol=1e-15;
     if ( defined $params->{t_start} )
     {
         $t_start = $params->{t_start};        
         # if this is a continuation, check that model time equals t_start
         if ($continue)
         {
-            unless ( defined($model->Time)  and  ($model->Time == $t_start) )
+            unless ( defined($model->Time)  and  (abs($model->Time - $t_start) < $tol) )
             {  return "t_start must equal current model time for continuation.";  }
         }
     }
@@ -477,8 +485,9 @@ sub simulate
         
         if ( ($t_end - $t_start) <= 0.0 )
         {
-        	send_warning("t_end (" . $t_end . ") is not greater than t_start (" . $t_start . "). " .
-                  	 "Simulation won't run.");
+            send_warning("t_end (" . $t_end . ") is not greater than t_start (" . $t_start . "). " .
+                    "Simulation won't run." . 
+                    "\nPlease check the BNGL file to make sure you didn't use a parameter as an argument value in the simulate action.");
         }
         
         if (defined $params->{n_steps}){
@@ -1015,7 +1024,7 @@ sub readNFspecies
         or return "Couldn't read from file $fname: $!";
 
     my $n_spec_read = 0;
-    my $n_spec_new = 0;
+    my $n_spec_unique = 0;
     my $line_num = 0;
     while ( my $string = <$FH> )
     {
@@ -1042,6 +1051,10 @@ sub readNFspecies
         my $existing_sg = $model->SpeciesList->lookup( $sg );
         if ($existing_sg)
         { 
+            # check if the original concentration is zero and if so, add to unique count
+            if ( $conc_vec->[$existing_sg->Index - 1] == 0 ) {
+                ++$n_spec_unique;
+            }
             # Add concentration to concentration of existing species
             $conc_vec->[$existing_sg->Index - 1] += $conc;
         }
@@ -1050,14 +1063,14 @@ sub readNFspecies
             # Create new Species entry in SpeciesList with zero default concentration
             my $newspec = $model->SpeciesList->add( $sg, 0 );
             $conc_vec->[ $newspec->Index - 1 ] = $conc;
-            ++$n_spec_new;
+            ++$n_spec_unique;
         }
         ++$n_spec_read;
     }
     close $FH;
 
     $model->Concentrations( $conc_vec );
-    printf "Read %d unique species of %d total.\n", $n_spec_new, $n_spec_read;
+    printf "Read %d unique species of %d total.\n", $n_spec_unique, $n_spec_read;
 
     # return SpeciesLable method to original setting
     SpeciesGraph::setSpeciesLabel( SpeciesGraph::getSpeciesLabelMethod(), $save_maxMols );
@@ -1616,6 +1629,9 @@ sub parameter_scan
     # check for required parameters
     unless ( defined $params->{parameter} )
     {   return "Error in parameter_scan: 'parameter' is not defined.";   }
+    # check that parameter is defined
+    (my $param, my $err)= $model->ParamList->lookup($params->{parameter});
+    if ($err) { return ($err);}
 
 	unless ( defined $params->{par_scan_vals} ){
 		
@@ -1661,7 +1677,7 @@ sub parameter_scan
     # update user
 #    printf "ACTION: parameter_scan(par: $params->{parameter}, min: $params->{par_min}, max: $params->{par_max}, ";
 #    printf "n_pts: $params->{n_scan_pts}, log: $params->{log_scale})\n";
-	printf "ACTION: parameter_scan( )";
+	printf "ACTION: parameter_scan( )\n";
 
     # define basename for scan results
     my $basename = $params->{prefix};

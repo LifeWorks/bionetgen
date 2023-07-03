@@ -2290,10 +2290,28 @@ sub findMap
 	            #printf "Component %s changed state from %s to %s\n", $pR, $stateR, $stateP;
 				push @{$rr->CompStateChange}, [ ($pR, $stateR, $stateP) ];
 			}
+
+			# AS-2022
+			# Get reactant and product edge as stated above, we assume that the wildcard is the only
+			# possible edge for a component. This should be enforced somewhere else. 
+            my $edgeR = $componentsR->[$icR]->Edges->[0];
+			my $edgeP = $componentsP->[$icP]->Edges->[0];
+
+			if ( defined $edgeR && $edgeR eq "+" ) {
+				if ( ! defined $edgeP || $edgeR ne $edgeP ) {
+					# one component is wildcard and the corresponding
+					# one isn't, breaking of wildcard bonds is not allowed
+					print "\n";
+					exit_error( "Found illegal wildcard bond breaking in a rule.\n"
+					        ."A wildcard bond in reactants doesn't have a corresponding wildcard bond in products",
+					        $rr->toString()
+				          );
+				}
+			}
+			# AS-2022
 		}
 	}
-
-
+	
     # Compartment changes:
     #
     # There are two types of compartment changes.
@@ -3238,9 +3256,7 @@ sub build_reaction
 		    $err = $p->assignCompartment($infer_comp);
 		    if ($err)
 		    {
-			    print "ERROR: $err\n"
-			        . "RxnRule>", $rr->toString(), "\n";
-			    return undef;
+			    exit_error("$err\n" . "RxnRule>" . $rr->toString() . "\n");
 		    }
 
             # (3) Check topology of bonds wwith 
@@ -3266,9 +3282,7 @@ sub build_reaction
         # Put product graph in canonical order (quasi-canonical for the time being)
 		if ( my $err = $p->sortLabel() )
 		{   # mysterious problem
-			print "ERROR: $err\n"
-			    . "RxnRule>", $rr->toString(), "\n";
-			return undef;
+			exit_error("$err\n" . "RxnRule>" . $rr->toString() . "\n");
 		}
 
 		# Does product match excluded pattern?

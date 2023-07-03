@@ -37,11 +37,15 @@ struct Expression =>
                        # '>','<','>=','<=','==','!=','~=','&&','||','!','~'
     Arglist => '@',
     Err     => '$',
+    # AS-2021
+    tfunFile => '$',
+    ctrName => '$',
+    # AS-2021
 };
 
 
 # NOTE: it's weird that some built-in functions with names (like exp, cos, etc) are handled
-#  differently thant built-ins with operator symbols (like +, -, etc).  We could really simplify this.
+#  differently than built-ins with operator symbols (like +, -, etc).  We could really simplify this.
 #  --Justin
 # Supported most muParser built-in functions. --LAH 
 # See http://muparser.sourceforge.net/mup_features.html#idDef2 for the complete list.
@@ -82,7 +86,157 @@ my %functions =
   "max"   => { FPTR => sub { max(@_) },              NARGS => scalar(@_) }, # <max/>
   "sum"   => { FPTR => sub { sum(@_) },              NARGS => scalar(@_) }, # <sum/>
   "avg"   => { FPTR => sub { sum(@_)/scalar(@_) },   NARGS => scalar(@_) }, # <mean/>
+  "mratio" => { FPTR => sub { Mratio($_[0],$_[1],$_[2]) }, NARGS => 3 },
+  "TFUN" => { FPTR => sub { TFUN($_[0], $_[1]) }, NARGS => 2 }, # AS-2021, function to load from file
 );
+
+# AS-2021 TFUN stuff
+sub TFUN
+{
+    # this function is supposed to indicate NFsim that it needs to 
+    # load the file in the second argument. Then use the observable 
+    # given by the first argument to compare to the first column given 
+    # in the file and pull values from the second column.
+    my $obs = shift @_;
+    my $file = shift @_;
+    # for now, just return the obs value to keep the rest of the mechanism
+    # working.
+    print "You are trying to evaluate a TFUN function ಠ_ಠ TFUNs only make sense
+           within NFsim. Try using NFsim, I'm going to dissapear into the 
+           ether now, good bye cruel world ◉︵◉ \n";
+    exit 1;
+    # TODO: Figure out a behavior for this function for simulators outside
+    # of NFsim
+    # return $obs
+}
+# AS-2021
+
+sub Mratio
+{
+	# Original Fortran code written by William Hlavacek (2018)
+	# Converted to Python and then Perl by Leonard A. Harris (2019)
+	my $a = shift @_;
+	my $b = shift @_;
+	my $z = shift @_;
+	# c This routine calculates the ratio M(a+1,b+1,z)/M(a,b,z) 
+	# c as a continued fraction f in the class of Gauss's continued fraction 
+	# c [Gauss CF (1813)]
+	# c using the modified method of Lentz WJ (1976) [Applied Optics 15:668-671]
+	# c [Thompson IJ, Barnett AR (1986) J Comput Phys 64: 490-509].
+	# c M(a,b,z) = {}_1F_1(a;b;z) is Kummer's (confluent hypergeometric) function 
+	# c [Kummer EE (1837) Crelle's Journal 17:228-242].
+	# c In general, we take f to have the following form:
+	# c f = q_0 + \frac{p_1}{q_1 +} \frac{p_2}{q_2 +} \frac{p_3}{q_3 +} \cdots
+	# c For the ratio of interest,
+	# c p_1 = 1
+	# c p_2 = z*[a-(b+0)]/[(b+0)*(b+1)]
+	# c p_3 = z*(a+1)    /[(b+1)*(b+2)]
+	# c p_4 = z*[a-(b+1)]/[(b+2)*(b+3)]
+	# c p_5 = z*(a+2)    /[(b+3)*(b+4)]
+	# c q_0 = 0
+	# c q_j = 1 for j = 1, 2, ...
+	# c [Van Vleck EB (1901) Ann Math 3: 1-18].
+	#       implicit none
+	# c argument
+	#       double precision a,b,z
+	# c parameter
+	#       double precision eps,tiny
+	#       parameter(eps=1.0d-16,tiny=1.0d-32)
+    my $eps = 1e-16;
+    my $tiny = 1e-32;
+	# c local
+	#       integer j,iodd,ieven
+	#       integer odd,oddsave,even,evensave
+	#       double precision f,fsave,C,Csave,D,Dsave,err
+	#       double precision p,q,num,den,Delta
+	# 
+	# c initialize
+	# c In general, we set f_0 = q_0. 
+	# c However, if q_0 = 0, we set f_0 = tiny instead.
+	# c We then set C_0 = f_0 and D_0 = 0.
+    my $fsave = $tiny;
+    my $Csave = $fsave;
+    my $Dsave = 0.0;
+      
+	# c We set err to a value greater than eps.
+    my $err = 1.0 + $eps;
+           
+    my $odd= 1;
+    my $even= 0;
+    my $iodd= 0;
+    my $ieven= 0;
+    my $j=0;
+    my $f; # return value
+    while($err > $eps){
+        $j=$j+1;
+        my $p;
+		# c calculate p_j and q_j
+		#         
+		# c p_1 = 1
+		# c p_j = num_j/den_j for j = 2, 3, ...
+		# c den_j = [b+(j-2)]*[b+(j-1)] for j = 2, 3, ...
+		# c if j>1 is even, then num_j = z*[a-(b+(j-2)/2)] = z*(a-(b+ieven-1))
+		# c if j>1 is odd, then num_j = z*[a+(j-1)/2] = z*(a+iodd)
+        if($j == 1){
+            $p=1.0;
+        }
+        elsif($j > 1){
+            my $den=($b+($j-2))*($b+($j-1));
+            my $num;
+            if($odd == 1){
+                $iodd=$iodd+1;
+                $num=$z*($a+$iodd);
+            }
+            elsif($even == 1){
+                $ieven=$ieven+1;
+                $num=$z*($a-($b+($ieven-1)));
+            }
+            else{
+                print "Error: iodd=$iodd, ieven=$ieven\n";
+                exit 1;
+            }
+            $p=$num/$den;
+        }
+        else{
+            print "Error: j=$j\n";
+            exit 1;
+        }
+        
+		# c q_j = 1 for j = 1, 2, ...  
+        my $q=1.0;
+        
+		# c calculate jth terms in recurrence relations
+		# c C_j = q_j + p_j/C_{j-1}
+		# c D_j = 1/(q_j + p_j*D_{j-1}) 
+        my $D=$q+$p*$Dsave;
+        if(abs($D) < $tiny){
+            $D=$tiny;
+        }
+        my $C=$q+$p/$Csave;
+        if(abs($C) < $tiny){
+            $C=$tiny;
+        }
+        $D=1.0/$D; 
+        
+		# c current approximation
+		# c f_j = C_j*D_j*f_{j-1}
+        my $Delta=$C*$D;
+        $f=$Delta*$fsave;
+        
+		# c if Delta is sufficiently close to 1, then the current approximation is acceptable.
+        $err=abs($Delta-1.0);
+
+		# c prepare for next iteration
+        $fsave=$f;
+        $Csave=$C;
+        $Dsave=$D;
+        my $oddsave=$odd;
+        my $evensave=$even;
+        $odd=$evensave;
+        $even=$oddsave;
+    }
+    return $f;
+}
 
 my $MAX_LEVEL = 500;    # Prevent infinite loop due to dependency loops
 
@@ -385,6 +539,42 @@ sub operate
             %$variables  = ();
         }
 
+        # AS-2021
+        # my $fstr;
+        my $ctrName;
+        # Pre-parse expression for TFUNC to remove string argument
+        if ($$sptr =~ /TFUN\(.*\)/) 
+        {
+            # check to see if we have one or two arguments
+            if ($$sptr =~ s/TFUN\(\s*([^\)\,]*)\s*,\s*[\'\"]\s*([^\)]*)\s*[\'\"]\s*\)/__TFUN__VAL__/) {
+                # two arguments, first one is observable,
+                # second is file
+                $ctrName = $1; 
+                $expr->tfunFile($2);
+                # $fstr = $2;
+                $expr->ctrName($ctrName);
+                $$sptr =~ s/__TFUN__VAL__/TFUN\($ctrName\)/;
+            } 
+            # else {
+            #     print "I can't parse the arguments given to TFUN function: ".$$sptr."\n";
+            #     exit 1
+            # }
+            # this is for single argument TFUN parsing, unhooking this for now
+            # elsif ($$sptr =~ s/TFUN\(\s*(.*)\s*\)/$1/) {
+            #     # we have a single file argument
+            #     $expr->ctrName($1);
+            #     $fstr = $1;
+            #     if ($fstr =~ s/(\".*\")//) {
+            #         $expr->tfunFile($1);
+            #     } elsif ($fstr =~ s/(\'.*\')//) {
+            #         $expr->tfunFile($1);
+            #     } else {
+            #         print "I can't parse the file given to TFUN function: ".$fstr."\n";
+            #         exit 1
+            #     }
+        }
+        # AS-2021
+
         # parse string into form expr op expr op ...
         # a+b*(c+d)
         # -5.0e+3/4
@@ -659,7 +849,7 @@ sub operate
 
         # Transform list into expression preserving operator precedence
         if (@list) { $expr->copy(arrayToExpression(@list)); }
-        
+
         return $err;
     }
 }
@@ -1140,6 +1330,10 @@ sub toString
     if ( $level > $MAX_LEVEL ) { die "Max recursion depth $MAX_LEVEL exceeded."; }
     if ( $expand  and  !$plist ) { die "Can't expand expression past parameters without a parameter list."; }
 
+    # AS-2021
+    if ( $expr->tfunFile ) { die "TFUN functions are not supported for non-NFsim simulators."; }
+    # AS-2021
+
     # local variables
     my $err;
     my $string;
@@ -1365,6 +1559,14 @@ sub toXML
     $string =~ s/\|\|/or/;
     #print "after XML replacement: $string\n";
     #END edit, msneddon
+
+    # AS-2021
+    if ($expr->tfunFile) {
+        # need to replace TFUN call from expr
+        my $cname = $expr->ctrName;
+        $string =~ s/TFUN\(\s*$cname\s*\)/__TFUN__VAL__/
+    }
+    # AS-2021
 
     return ($string);
 }
@@ -1605,7 +1807,8 @@ sub toMatlabString
 
                 if ( @sarr == 3)
                 {   # TODO: find better solution here. this version will return NaN if either return value is Inf.
-                    $string = sprintf( "((%s~=0)*%s + (%s==0)*%s)", $sarr[0], $sarr[1], $sarr[0], $sarr[2]);
+                    #$string = sprintf( "((%s~=0)*%s + (%s==0)*%s)", $sarr[0], $sarr[1], $sarr[0], $sarr[2]);
+                    $string = sprintf( "if__fun( %s, %s, %s)", $sarr[0], $sarr[1], $sarr[2]);
                 }
                 else
                 {   die "Error in Expression->toMatlabString():  built-in function 'if' must have three arguments!";   }    
@@ -1941,6 +2144,11 @@ sub getName
              and ref $expr->Arglist->[0] ne "Function" )
     {   # function call without arguments, no need to create a new parameter
         $name = $expr->Arglist->[0];
+    }
+    elsif ( $expr->Type eq "FunctionCall"
+    		and $expr->Arglist->[0] =~ /^$basename/ )
+    {   # already a derived function, no need to create a new parameter
+    	$name = $expr->Arglist->[0];
     }
     else 
     {
